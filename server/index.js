@@ -10,6 +10,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/api/boards', require('./routes/boards'));
+app.use('/api/columns', require('./routes/columns'));
+app.use('/api/tasks', require('./routes/tasks'));
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
