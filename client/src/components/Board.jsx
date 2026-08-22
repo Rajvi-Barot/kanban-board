@@ -7,12 +7,44 @@ function Board() {
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
 
-function handleTaskCreated(columnId, newTask) {
+  function handleTaskCreated(columnId, newTask) {
     setColumns((prevColumns) =>
       prevColumns.map((col) =>
         col._id === columnId ? { ...col, tasks: [...col.tasks, newTask] } : col
       )
     );
+  }
+
+  async function handleDropTask(taskId, targetColumnId) {
+    // Day 11: move it in local state immediately, so the UI feels instant
+    setColumns((prevColumns) => {
+      let movedTask = null;
+      const withoutTask = prevColumns.map((col) => {
+        const stillHere = col.tasks.filter((t) => {
+          if (t._id === taskId) {
+            movedTask = t;
+            return false;
+          }
+          return true;
+        });
+        return { ...col, tasks: stillHere };
+      });
+
+      if (!movedTask) return prevColumns;
+
+      return withoutTask.map((col) =>
+        col._id === targetColumnId
+          ? { ...col, tasks: [...col.tasks, movedTask] }
+          : col
+      );
+    });
+
+    // Day 12: tell the backend the task's column actually changed, so it's saved
+    await fetch(`${API_URL}/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ column: targetColumnId }),
+    });
   }
 
   useEffect(() => {
@@ -44,12 +76,24 @@ function handleTaskCreated(columnId, newTask) {
   }, []);
 
   if (loading) return <p style={{ padding: 24 }}>Loading board...</p>;
-  return (
-    <div className="board">
-      {columns.map((column) => (
-                <Column key={column._id} column={column} onTaskCreated={handleTaskCreated} />
-      ))}
-    </div>
+
+    return (
+    <>
+      <header className="app-header">
+        <span className="logo-dot"></span>
+        <h1>Kanban Board</h1>
+      </header>
+      <div className="board">
+        {columns.map((column) => (
+          <Column
+            key={column._id}
+            column={column}
+            onTaskCreated={handleTaskCreated}
+            onDropTask={handleDropTask}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

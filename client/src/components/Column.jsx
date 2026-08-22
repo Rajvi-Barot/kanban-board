@@ -3,8 +3,9 @@ import TaskCard from './TaskCard';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Column({ column, onTaskCreated }) {
+function Column({ column, onTaskCreated, onDropTask }) {
   const [title, setTitle] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
 
   async function handleAddTask(e) {
     e.preventDefault();
@@ -21,10 +22,30 @@ function Column({ column, onTaskCreated }) {
     setTitle('');
   }
 
+  function handleDragOver(e) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave() {
+    setIsDragOver(false);
+  }
+
+  function handleDrop(e) {
+    const taskId = e.dataTransfer.getData('taskId');
+    onDropTask(taskId, column._id);
+    setIsDragOver(false);
+  }
+
   return (
     <div className="column">
       <h3>{column.name}</h3>
-      <div className="task-list">
+      <div
+        className={`task-list${isDragOver ? ' drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {column.tasks.map((task) => (
           <TaskCard key={task._id} task={task} />
         ))}
