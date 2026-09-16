@@ -9,6 +9,7 @@ function Board() {
   const [boardId, setBoardId] = useState(null);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [newColumnName, setNewColumnName] = useState('');
   const socketRef = useRef(null);
 
@@ -124,36 +125,55 @@ function Board() {
 
   useEffect(() => {
     async function loadBoard() {
-      let boardsRes = await fetch(`${API_URL}/boards`);
-      let boards = await boardsRes.json();
+      try {
+        let boardsRes = await fetch(`${API_URL}/boards`);
+        if (!boardsRes.ok) {
+          throw new Error(`Server responded with ${boardsRes.status} when fetching boards`);
+        }
+        let boards = await boardsRes.json();
 
-      // First run: no board exists yet, so create a default one.
-      if (boards.length === 0) {
-        const createRes = await fetch(`${API_URL}/boards`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'My Board' }),
-        });
-        const newBoard = await createRes.json();
-        boards = [newBoard];
+        // First run: no board exists yet, so create a default one.
+        if (boards.length === 0) {
+          const createRes = await fetch(`${API_URL}/boards`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'My Board' }),
+          });
+          if (!createRes.ok) {
+            throw new Error(`Server responded with ${createRes.status} when creating the default board`);
+          }
+          const newBoard = await createRes.json();
+          boards = [newBoard];
+        }
+
+        const currentBoardId = boards[0]._id;
+        setBoardId(currentBoardId);
+
+        const columnsRes = await fetch(`${API_URL}/columns?board=${currentBoardId}`);
+        if (!columnsRes.ok) {
+          throw new Error(`Server responded with ${columnsRes.status} when fetching columns`);
+        }
+        const rawColumns = await columnsRes.json();
+
+        const columnsWithTasks = await Promise.all(
+          rawColumns.map(async (col) => {
+            const tasksRes = await fetch(`${API_URL}/tasks?column=${col._id}`);
+            const tasks = await tasksRes.json();
+            return { ...col, tasks };
+          })
+        );
+
+        setColumns(columnsWithTasks);
+        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load board:', err);
+        setLoadError(
+          err.message?.includes('fetch')
+            ? "Can't reach the server at " + API_URL + ". Make sure the backend (npm run dev / node index.js in the server folder) is running."
+            : err.message
+        );
+        setLoading(false);
       }
-
-      const currentBoardId = boards[0]._id;
-      setBoardId(currentBoardId);
-
-      const columnsRes = await fetch(`${API_URL}/columns?board=${currentBoardId}`);
-      const rawColumns = await columnsRes.json();
-
-      const columnsWithTasks = await Promise.all(
-        rawColumns.map(async (col) => {
-          const tasksRes = await fetch(`${API_URL}/tasks?column=${col._id}`);
-          const tasks = await tasksRes.json();
-          return { ...col, tasks };
-        })
-      );
-
-      setColumns(columnsWithTasks);
-      setLoading(false);
     }
 
     loadBoard();
@@ -178,6 +198,15 @@ function Board() {
   }, []);
 
   if (loading) return <p style={{ padding: 24 }}>Loading board...</p>;
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 24, maxWidth: 600 }}>
+        <p style={{ color: '#c0392b', fontWeight: 600 }}>Couldn't load the board</p>
+        <p style={{ color: '#4b5163' }}>{loadError}</p>
+      </div>
+    );
+  }
 
   return (
     <>
