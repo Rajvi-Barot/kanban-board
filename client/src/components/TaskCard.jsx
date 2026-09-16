@@ -8,6 +8,18 @@ const LABELS = {
   urgent: { text: 'Urgent', className: 'label-urgent' },
 };
 
+const AVATAR_COLORS = ['#de350b', '#0052cc', '#00875a', '#6554c0', '#ff8b00', '#00a3bf'];
+
+function avatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function initials(name) {
+  return name.slice(0, 2).toUpperCase();
+}
+
 function formatDueDate(dueDate) {
   if (!dueDate) return null;
   const date = new Date(dueDate);
@@ -23,7 +35,7 @@ function formatDueDate(dueDate) {
   return { label, className };
 }
 
-function TaskCard({ task, onEdit, onDelete }) {
+function TaskCard({ task, users = [], onEdit, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [descDraft, setDescDraft] = useState(task.description || '');
@@ -31,6 +43,7 @@ function TaskCard({ task, onEdit, onDelete }) {
   const [dueDateDraft, setDueDateDraft] = useState(
     task.dueDate ? task.dueDate.slice(0, 10) : ''
   );
+  const [assigneeDraft, setAssigneeDraft] = useState(task.assignee?._id || '');
 
   function handleDragStart(e) {
     e.dataTransfer.setData('taskId', task._id);
@@ -44,6 +57,7 @@ function TaskCard({ task, onEdit, onDelete }) {
       description: descDraft,
       label: labelDraft,
       dueDate: dueDateDraft || null,
+      assignee: assigneeDraft || null,
     });
     setIsEditing(false);
   }
@@ -81,6 +95,14 @@ function TaskCard({ task, onEdit, onDelete }) {
             onChange={(e) => setDueDateDraft(e.target.value)}
           />
         </div>
+        <select value={assigneeDraft} onChange={(e) => setAssigneeDraft(e.target.value)}>
+          <option value="">Unassigned</option>
+          {users.map((u) => (
+            <option key={u._id} value={u._id}>
+              {u.username}
+            </option>
+          ))}
+        </select>
         <div className="task-card-actions">
           <button type="submit">Save</button>
           <button type="button" onClick={() => setIsEditing(false)}>
@@ -112,7 +134,21 @@ function TaskCard({ task, onEdit, onDelete }) {
       {label && <span className={`task-label ${label.className}`}>{label.text}</span>}
       <p className="task-title">{task.title}</p>
       {task.description && <p className="task-desc">{task.description}</p>}
-      {due && <span className={due.className}>{due.label}</span>}
+      <div className="task-card-footer">
+        <span className="task-footer-left">
+          {task.ticketId && <span className="ticket-id">{task.ticketId}</span>}
+          {due && <span className={due.className}>{due.label}</span>}
+        </span>
+        {task.assignee && (
+          <span
+            className="task-avatar"
+            title={task.assignee.username}
+            style={{ background: avatarColor(task.assignee.username) }}
+          >
+            {initials(task.assignee.username)}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

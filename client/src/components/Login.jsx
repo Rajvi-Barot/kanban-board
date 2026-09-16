@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/auth';
+import ThemeToggle from './ThemeToggle';
 
 function Login() {
   const { login, register } = useAuth();
@@ -32,6 +33,7 @@ function Login() {
         <div className="auth-header">
           <span className="logo-dot"></span>
           <h1>Kanban Board</h1>
+          <ThemeToggle />
         </div>
 
         <div className="auth-tabs">

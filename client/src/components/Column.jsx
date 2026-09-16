@@ -5,6 +5,7 @@ import { API_URL } from '../config';
 
 function Column({
   column,
+  users,
   onTaskCreated,
   onDropTask,
   onEditTask,
@@ -105,6 +106,7 @@ function Column({
           <TaskCard
             key={task._id}
             task={task}
+            users={users}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
           />

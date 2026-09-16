@@ -11,6 +11,8 @@ const taskSchema = new mongoose.Schema({
     default: 'none',
   },
   dueDate: { type: Date, default: null },
+  ticketId: { type: String, unique: true, sparse: true },
+  assignee: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Column from './Column';
+import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../context/auth';
 import { API_URL } from '../config';
 
@@ -14,6 +15,8 @@ function Board() {
   const [loadError, setLoadError] = useState(null);
   const [newColumnName, setNewColumnName] = useState('');
   const [isLive, setIsLive] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const socketRef = useRef(null);
 
   // Merge a task into local state (used for both optimistic updates and
@@ -178,6 +181,11 @@ function Board() {
 
         setColumns(columnsWithTasks);
         setLoading(false);
+
+        const usersRes = await authFetch(`${API_URL}/auth/users`);
+        if (usersRes.ok) {
+          setUsers(await usersRes.json());
+        }
       } catch (err) {
         console.error('Failed to load board:', err);
         setLoadError(
@@ -216,6 +224,14 @@ function Board() {
     };
   }, [token]);
 
+  const query = searchQuery.trim().toLowerCase();
+  const visibleColumns = query
+    ? columns.map((col) => ({
+        ...col,
+        tasks: col.tasks.filter((t) => t.title.toLowerCase().includes(query)),
+      }))
+    : columns;
+
   if (loading) return <p style={{ padding: 24 }}>Loading board...</p>;
 
   if (loadError) {
@@ -236,16 +252,25 @@ function Board() {
           <span className="live-dot"></span>
           {isLive ? 'Live' : 'Offline'}
         </span>
+        <input
+          type="text"
+          className="board-search"
+          placeholder="Search tasks..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <ThemeToggle />
         <span className="current-user">{username}</span>
         <button type="button" className="logout-btn" onClick={logout}>
           Log out
         </button>
       </header>
       <div className="board">
-        {columns.map((column) => (
+        {visibleColumns.map((column) => (
           <Column
             key={column._id}
             column={column}
+            users={users}
             onTaskCreated={handleTaskCreated}
             onDropTask={handleDropTask}
             onEditTask={handleEditTask}

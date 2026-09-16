@@ -61,4 +61,16 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/users — list everyone who has an account, for the
+// "assign to" dropdown. Protected: only logged-in users can see this.
+const requireAuth = require('../middleware/auth');
+router.get('/users', requireAuth, async (req, res) => {
+  try {
+    const users = await User.find().select('username').sort('username');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
