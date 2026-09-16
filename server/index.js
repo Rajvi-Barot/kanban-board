@@ -19,12 +19,29 @@ app.set('io', io);
 
 app.use(cors());
 app.use(express.json());
-app.use('/api/boards', require('./routes/boards'));
-app.use('/api/columns', require('./routes/columns'));
-app.use('/api/tasks', require('./routes/tasks'));
+
+const requireAuth = require('./middleware/auth');
+const jwt = require('jsonwebtoken');
+
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/boards', requireAuth, require('./routes/boards'));
+app.use('/api/columns', requireAuth, require('./routes/columns'));
+app.use('/api/tasks', requireAuth, require('./routes/tasks'));
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// Only accept socket connections carrying a valid JWT, same as the REST API.
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('No token provided'));
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    next(new Error('Invalid or expired token'));
+  }
 });
 
 io.on('connection', (socket) => {

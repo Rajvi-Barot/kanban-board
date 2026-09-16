@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Column from './Column';
+import { useAuth } from '../context/auth';
+import { API_URL } from '../config';
 
-const API_URL = 'http://localhost:5000/api';
 const SOCKET_URL = 'http://localhost:5000';
 
 function Board() {
+  const { username, token, logout, authFetch } = useAuth();
   const [boardId, setBoardId] = useState(null);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ function Board() {
 
     // Tell the backend the task's column actually changed, so it's saved
     // and broadcast to everyone else.
-    await fetch(`${API_URL}/tasks/${taskId}`, {
+    await authFetch(`${API_URL}/tasks/${taskId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ column: targetColumnId }),
@@ -81,7 +83,7 @@ function Board() {
   }
 
   async function handleEditTask(taskId, updates) {
-    const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+    const res = await authFetch(`${API_URL}/tasks/${taskId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -92,14 +94,14 @@ function Board() {
 
   async function handleDeleteTask(taskId) {
     removeTask(taskId);
-    await fetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE' });
+    await authFetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE' });
   }
 
   async function handleAddColumn(e) {
     e.preventDefault();
     if (!newColumnName.trim() || !boardId) return;
 
-    const res = await fetch(`${API_URL}/columns`, {
+    const res = await authFetch(`${API_URL}/columns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newColumnName, board: boardId }),
@@ -110,7 +112,7 @@ function Board() {
   }
 
   async function handleRenameColumn(columnId, name) {
-    const res = await fetch(`${API_URL}/columns/${columnId}`, {
+    const res = await authFetch(`${API_URL}/columns/${columnId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -121,13 +123,13 @@ function Board() {
 
   async function handleDeleteColumn(columnId) {
     removeColumn(columnId);
-    await fetch(`${API_URL}/columns/${columnId}`, { method: 'DELETE' });
+    await authFetch(`${API_URL}/columns/${columnId}`, { method: 'DELETE' });
   }
 
   useEffect(() => {
     async function loadBoard() {
       try {
-        let boardsRes = await fetch(`${API_URL}/boards`);
+        let boardsRes = await authFetch(`${API_URL}/boards`);
         if (!boardsRes.ok) {
           throw new Error(`Server responded with ${boardsRes.status} when fetching boards`);
         }
@@ -135,7 +137,7 @@ function Board() {
 
         // First run: no board exists yet, so create a default one.
         if (boards.length === 0) {
-          const createRes = await fetch(`${API_URL}/boards`, {
+          const createRes = await authFetch(`${API_URL}/boards`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: 'My Board' }),
@@ -149,7 +151,7 @@ function Board() {
           // Seed a fresh board with the usual three columns instead of
           // leaving it empty.
           for (const name of ['To Do', 'In Progress', 'Done']) {
-            await fetch(`${API_URL}/columns`, {
+            await authFetch(`${API_URL}/columns`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name, board: newBoard._id }),
@@ -160,7 +162,7 @@ function Board() {
         const currentBoardId = boards[0]._id;
         setBoardId(currentBoardId);
 
-        const columnsRes = await fetch(`${API_URL}/columns?board=${currentBoardId}`);
+        const columnsRes = await authFetch(`${API_URL}/columns?board=${currentBoardId}`);
         if (!columnsRes.ok) {
           throw new Error(`Server responded with ${columnsRes.status} when fetching columns`);
         }
@@ -168,7 +170,7 @@ function Board() {
 
         const columnsWithTasks = await Promise.all(
           rawColumns.map(async (col) => {
-            const tasksRes = await fetch(`${API_URL}/tasks?column=${col._id}`);
+            const tasksRes = await authFetch(`${API_URL}/tasks?column=${col._id}`);
             const tasks = await tasksRes.json();
             return { ...col, tasks };
           })
@@ -188,16 +190,20 @@ function Board() {
     }
 
     loadBoard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Real-time sync: connect once, listen for changes from any client
   // (including this one — the handlers above are written to be idempotent).
   useEffect(() => {
-    const socket = io(SOCKET_URL);
+    if (!token) return;
+
+    const socket = io(SOCKET_URL, { auth: { token } });
     socketRef.current = socket;
 
     socket.on('connect', () => setIsLive(true));
     socket.on('disconnect', () => setIsLive(false));
+    socket.on('connect_error', () => setIsLive(false));
     socket.on('task:created', upsertTask);
     socket.on('task:updated', upsertTask);
     socket.on('task:deleted', (payload) => removeTask(payload._id));
@@ -208,7 +214,7 @@ function Board() {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [token]);
 
   if (loading) return <p style={{ padding: 24 }}>Loading board...</p>;
 
@@ -230,6 +236,10 @@ function Board() {
           <span className="live-dot"></span>
           {isLive ? 'Live' : 'Offline'}
         </span>
+        <span className="current-user">{username}</span>
+        <button type="button" className="logout-btn" onClick={logout}>
+          Log out
+        </button>
       </header>
       <div className="board">
         {columns.map((column) => (

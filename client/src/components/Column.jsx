@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import TaskCard from './TaskCard';
-
-const API_URL = 'http://localhost:5000/api';
+import { useAuth } from '../context/auth';
+import { API_URL } from '../config';
 
 function Column({
   column,
@@ -12,6 +12,7 @@ function Column({
   onRenameColumn,
   onDeleteColumn,
 }) {
+  const { authFetch } = useAuth();
   const [title, setTitle] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -21,7 +22,7 @@ function Column({
     e.preventDefault();
     if (!title.trim()) return;
 
-    const res = await fetch(`${API_URL}/tasks`, {
+    const res = await authFetch(`${API_URL}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, column: column._id }),
