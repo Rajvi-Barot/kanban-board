@@ -145,6 +145,16 @@ function Board() {
           }
           const newBoard = await createRes.json();
           boards = [newBoard];
+
+          // Seed a fresh board with the usual three columns instead of
+          // leaving it empty.
+          for (const name of ['To Do', 'In Progress', 'Done']) {
+            await fetch(`${API_URL}/columns`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, board: newBoard._id }),
+            });
+          }
         }
 
         const currentBoardId = boards[0]._id;

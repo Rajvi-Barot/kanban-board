@@ -5,6 +5,12 @@ const taskSchema = new mongoose.Schema({
   description: String,
   column: { type: mongoose.Schema.Types.ObjectId, ref: 'Column', required: true },
   order: { type: Number, default: 0 },
+  label: {
+    type: String,
+    enum: ['none', 'bug', 'feature', 'idea', 'urgent'],
+    default: 'none',
+  },
+  dueDate: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

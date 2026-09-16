@@ -19,6 +19,8 @@ router.post('/', async (req, res) => {
       title: req.body?.title,
       description: req.body?.description,
       column: req.body?.column,
+      label: req.body?.label,
+      dueDate: req.body?.dueDate || null,
     });
     const savedTask = await task.save();
     req.app.get('io').emit('task:created', savedTask);
@@ -31,16 +33,11 @@ router.post('/', async (req, res) => {
 // PUT (update) a task by id — also used to move it to a different column
 router.put('/:id', async (req, res) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
-      {
-        title: req.body?.title,
-        description: req.body?.description,
-        column: req.body?.column,
-        order: req.body?.order,
-      },
-      { new: true }
-    );
+    const updates = {};
+    for (const field of ['title', 'description', 'column', 'order', 'label', 'dueDate']) {
+      if (req.body?.[field] !== undefined) updates[field] = req.body[field];
+    }
+    const updatedTask = await Task.findByIdAndUpdate(req.params.id, updates, { new: true });
     req.app.get('io').emit('task:updated', updatedTask);
     res.json(updatedTask);
   } catch (err) {
