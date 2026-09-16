@@ -20,13 +20,25 @@ export function AuthProvider({ children }) {
     setUsername(null);
   }, []);
 
+  async function parseJsonResponse(res) {
+    const rawText = await res.text();
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      throw new Error(
+        `Server at ${API_URL} didn't return JSON (got: "${rawText.slice(0, 80)}"). ` +
+          'Make sure the backend server is running and restarted after the latest changes.'
+      );
+    }
+  }
+
   async function login(usernameInput, password) {
     const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: usernameInput, password }),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Login failed');
     saveSession(data.token, data.username);
   }
@@ -37,7 +49,7 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: usernameInput, password }),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Registration failed');
     saveSession(data.token, data.username);
   }
