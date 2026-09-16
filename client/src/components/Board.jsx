@@ -1,45 +1,76 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 import Column from './Column';
 
 const API_URL = 'http://localhost:5000/api';
+const SOCKET_URL = 'http://localhost:5000';
 
 function Board() {
+  const [boardId, setBoardId] = useState(null);
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newColumnName, setNewColumnName] = useState('');
+  const socketRef = useRef(null);
 
-  function handleTaskCreated(columnId, newTask) {
+  // Merge a task into local state (used for both optimistic updates and
+  // real-time events from other clients) — remove it from wherever it was,
+  // then re-insert it into the column it belongs to now. Idempotent.
+  function upsertTask(task) {
+    if (!task || !task._id) return;
     setColumns((prevColumns) =>
-      prevColumns.map((col) =>
-        col._id === columnId ? { ...col, tasks: [...col.tasks, newTask] } : col
-      )
+      prevColumns.map((col) => {
+        const withoutTask = col.tasks.filter((t) => t._id !== task._id);
+        if (col._id === task.column) {
+          return { ...col, tasks: [...withoutTask, task] };
+        }
+        return { ...col, tasks: withoutTask };
+      })
     );
   }
 
-  async function handleDropTask(taskId, targetColumnId) {
-    // Day 11: move it in local state immediately, so the UI feels instant
+  function removeTask(taskId) {
+    setColumns((prevColumns) =>
+      prevColumns.map((col) => ({
+        ...col,
+        tasks: col.tasks.filter((t) => t._id !== taskId),
+      }))
+    );
+  }
+
+  function upsertColumn(column) {
+    if (!column || !column._id) return;
     setColumns((prevColumns) => {
-      let movedTask = null;
-      const withoutTask = prevColumns.map((col) => {
-        const stillHere = col.tasks.filter((t) => {
-          if (t._id === taskId) {
-            movedTask = t;
-            return false;
-          }
-          return true;
-        });
-        return { ...col, tasks: stillHere };
-      });
-
-      if (!movedTask) return prevColumns;
-
-      return withoutTask.map((col) =>
-        col._id === targetColumnId
-          ? { ...col, tasks: [...col.tasks, movedTask] }
-          : col
-      );
+      const exists = prevColumns.some((c) => c._id === column._id);
+      if (exists) {
+        return prevColumns.map((c) =>
+          c._id === column._id ? { ...c, name: column.name } : c
+        );
+      }
+      return [...prevColumns, { ...column, tasks: [] }];
     });
+  }
 
-    // Day 12: tell the backend the task's column actually changed, so it's saved
+  function removeColumn(columnId) {
+    setColumns((prevColumns) => prevColumns.filter((c) => c._id !== columnId));
+  }
+
+  function handleTaskCreated(_columnId, newTask) {
+    upsertTask(newTask);
+  }
+
+  async function handleDropTask(taskId, targetColumnId) {
+    // Move it in local state immediately, so the UI feels instant
+    let movedTask = null;
+    columns.forEach((col) => {
+      const found = col.tasks.find((t) => t._id === taskId);
+      if (found) movedTask = found;
+    });
+    if (movedTask) {
+      upsertTask({ ...movedTask, column: targetColumnId });
+    }
+
+    // Tell the backend the task's column actually changed, so it's saved
+    // and broadcast to everyone else.
     await fetch(`${API_URL}/tasks/${taskId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -47,17 +78,70 @@ function Board() {
     });
   }
 
+  async function handleEditTask(taskId, updates) {
+    const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const updatedTask = await res.json();
+    upsertTask(updatedTask);
+  }
+
+  async function handleDeleteTask(taskId) {
+    removeTask(taskId);
+    await fetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE' });
+  }
+
+  async function handleAddColumn(e) {
+    e.preventDefault();
+    if (!newColumnName.trim() || !boardId) return;
+
+    const res = await fetch(`${API_URL}/columns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newColumnName, board: boardId }),
+    });
+    const newColumn = await res.json();
+    upsertColumn(newColumn);
+    setNewColumnName('');
+  }
+
+  async function handleRenameColumn(columnId, name) {
+    const res = await fetch(`${API_URL}/columns/${columnId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const updatedColumn = await res.json();
+    upsertColumn(updatedColumn);
+  }
+
+  async function handleDeleteColumn(columnId) {
+    removeColumn(columnId);
+    await fetch(`${API_URL}/columns/${columnId}`, { method: 'DELETE' });
+  }
+
   useEffect(() => {
     async function loadBoard() {
-      const boardsRes = await fetch(`${API_URL}/boards`);
-      const boards = await boardsRes.json();
-      if (boards.length === 0) {
-        setLoading(false);
-        return;
-      }
-      const boardId = boards[0]._id;
+      let boardsRes = await fetch(`${API_URL}/boards`);
+      let boards = await boardsRes.json();
 
-      const columnsRes = await fetch(`${API_URL}/columns?board=${boardId}`);
+      // First run: no board exists yet, so create a default one.
+      if (boards.length === 0) {
+        const createRes = await fetch(`${API_URL}/boards`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'My Board' }),
+        });
+        const newBoard = await createRes.json();
+        boards = [newBoard];
+      }
+
+      const currentBoardId = boards[0]._id;
+      setBoardId(currentBoardId);
+
+      const columnsRes = await fetch(`${API_URL}/columns?board=${currentBoardId}`);
       const rawColumns = await columnsRes.json();
 
       const columnsWithTasks = await Promise.all(
@@ -75,9 +159,27 @@ function Board() {
     loadBoard();
   }, []);
 
+  // Real-time sync: connect once, listen for changes from any client
+  // (including this one — the handlers above are written to be idempotent).
+  useEffect(() => {
+    const socket = io(SOCKET_URL);
+    socketRef.current = socket;
+
+    socket.on('task:created', upsertTask);
+    socket.on('task:updated', upsertTask);
+    socket.on('task:deleted', (payload) => removeTask(payload._id));
+    socket.on('column:created', upsertColumn);
+    socket.on('column:updated', upsertColumn);
+    socket.on('column:deleted', (payload) => removeColumn(payload._id));
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
   if (loading) return <p style={{ padding: 24 }}>Loading board...</p>;
 
-    return (
+  return (
     <>
       <header className="app-header">
         <span className="logo-dot"></span>
@@ -90,8 +192,21 @@ function Board() {
             column={column}
             onTaskCreated={handleTaskCreated}
             onDropTask={handleDropTask}
+            onEditTask={handleEditTask}
+            onDeleteTask={handleDeleteTask}
+            onRenameColumn={handleRenameColumn}
+            onDeleteColumn={handleDeleteColumn}
           />
         ))}
+        <form onSubmit={handleAddColumn} className="add-column-form">
+          <input
+            type="text"
+            placeholder="New column name"
+            value={newColumnName}
+            onChange={(e) => setNewColumnName(e.target.value)}
+          />
+          <button type="submit">Add column</button>
+        </form>
       </div>
     </>
   );

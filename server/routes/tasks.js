@@ -21,13 +21,14 @@ router.post('/', async (req, res) => {
       column: req.body?.column,
     });
     const savedTask = await task.save();
+    req.app.get('io').emit('task:created', savedTask);
     res.status(201).json(savedTask);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// PUT (update) a task by id — also used later to move it to a different column
+// PUT (update) a task by id — also used to move it to a different column
 router.put('/:id', async (req, res) => {
   try {
     const updatedTask = await Task.findByIdAndUpdate(
@@ -40,6 +41,7 @@ router.put('/:id', async (req, res) => {
       },
       { new: true }
     );
+    req.app.get('io').emit('task:updated', updatedTask);
     res.json(updatedTask);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -50,6 +52,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await Task.findByIdAndDelete(req.params.id);
+    req.app.get('io').emit('task:deleted', { _id: req.params.id });
     res.json({ message: 'Task deleted' });
   } catch (err) {
     res.status(400).json({ error: err.message });

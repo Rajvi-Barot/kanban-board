@@ -20,6 +20,7 @@ router.post('/', async (req, res) => {
       board: req.body?.board,
     });
     const savedColumn = await column.save();
+    req.app.get('io').emit('column:created', savedColumn);
     res.status(201).json(savedColumn);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -34,6 +35,7 @@ router.put('/:id', async (req, res) => {
       { name: req.body?.name },
       { new: true }
     );
+    req.app.get('io').emit('column:updated', updatedColumn);
     res.json(updatedColumn);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -44,6 +46,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await Column.findByIdAndDelete(req.params.id);
+    req.app.get('io').emit('column:deleted', { _id: req.params.id });
     res.json({ message: 'Column deleted' });
   } catch (err) {
     res.status(400).json({ error: err.message });

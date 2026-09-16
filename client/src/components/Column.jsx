@@ -3,9 +3,19 @@ import TaskCard from './TaskCard';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Column({ column, onTaskCreated, onDropTask }) {
+function Column({
+  column,
+  onTaskCreated,
+  onDropTask,
+  onEditTask,
+  onDeleteTask,
+  onRenameColumn,
+  onDeleteColumn,
+}) {
   const [title, setTitle] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(column.name);
 
   async function handleAddTask(e) {
     e.preventDefault();
@@ -37,9 +47,48 @@ function Column({ column, onTaskCreated, onDropTask }) {
     setIsDragOver(false);
   }
 
+  function handleRenameSubmit(e) {
+    e.preventDefault();
+    if (!nameDraft.trim()) return;
+    onRenameColumn(column._id, nameDraft);
+    setIsRenaming(false);
+  }
+
+  function handleDeleteColumn() {
+    if (column.tasks.length > 0) {
+      const ok = window.confirm(
+        `Delete "${column.name}" and its ${column.tasks.length} task(s)?`
+      );
+      if (!ok) return;
+    }
+    onDeleteColumn(column._id);
+  }
+
   return (
     <div className="column">
-      <h3>{column.name}</h3>
+      <div className="column-header">
+        {isRenaming ? (
+          <form onSubmit={handleRenameSubmit} className="rename-column-form">
+            <input
+              type="text"
+              value={nameDraft}
+              autoFocus
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={handleRenameSubmit}
+            />
+          </form>
+        ) : (
+          <h3 onDoubleClick={() => setIsRenaming(true)}>{column.name}</h3>
+        )}
+        <button
+          type="button"
+          className="delete-column-btn"
+          title="Delete column"
+          onClick={handleDeleteColumn}
+        >
+          &times;
+        </button>
+      </div>
       <div
         className={`task-list${isDragOver ? ' drag-over' : ''}`}
         onDragOver={handleDragOver}
@@ -47,7 +96,12 @@ function Column({ column, onTaskCreated, onDropTask }) {
         onDrop={handleDrop}
       >
         {column.tasks.map((task) => (
-          <TaskCard key={task._id} task={task} />
+          <TaskCard
+            key={task._id}
+            task={task}
+            onEdit={onEditTask}
+            onDelete={onDeleteTask}
+          />
         ))}
       </div>
       <form onSubmit={handleAddTask} className="add-task-form">

@@ -138,3 +138,163 @@ body {
 .add-task-form button:hover {
   background: #4338ca;
 }
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.column-header h3 {
+  margin: 0;
+  cursor: text;
+}
+
+.rename-column-form {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.rename-column-form input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid #4f46e5;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  text-transform: uppercase;
+}
+
+.delete-column-btn {
+  background: none;
+  border: none;
+  color: #9ca0ae;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.delete-column-btn:hover {
+  background: #fde2e2;
+  color: #c0392b;
+}
+
+.task-card {
+  position: relative;
+}
+
+.delete-task-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: #b6bac5;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+}
+
+.task-card:hover .delete-task-btn {
+  opacity: 1;
+}
+
+.delete-task-btn:hover {
+  background: #fde2e2;
+  color: #c0392b;
+}
+
+.task-card-editing {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: default;
+}
+
+.task-card-editing input,
+.task-card-editing textarea {
+  padding: 6px 8px;
+  border: 1px solid #d7dae3;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.task-card-editing input:focus,
+.task-card-editing textarea:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.task-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.task-card-actions button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.task-card-actions button[type='submit'] {
+  background: #4f46e5;
+  color: white;
+}
+
+.task-card-actions button[type='button'] {
+  background: #e5e7f0;
+  color: #4b5163;
+}
+
+.add-column-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 270px;
+  flex-shrink: 0;
+  padding: 16px;
+  height: fit-content;
+}
+
+.add-column-form input {
+  padding: 10px 12px;
+  border: 1px dashed #c6cad6;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: transparent;
+}
+
+.add-column-form input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  border-style: solid;
+}
+
+.add-column-form button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.add-column-form button:hover {
+  background: #4338ca;
+}
