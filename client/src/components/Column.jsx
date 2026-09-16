@@ -78,7 +78,12 @@ function Column({
             />
           </form>
         ) : (
-          <h3 onDoubleClick={() => setIsRenaming(true)}>{column.name}</h3>
+          <h3
+            onDoubleClick={() => setIsRenaming(true)}
+            data-count={column.tasks.length}
+          >
+            {column.name}
+          </h3>
         )}
         <button
           type="button"

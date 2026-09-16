@@ -11,6 +11,7 @@ function Board() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [newColumnName, setNewColumnName] = useState('');
+  const [isLive, setIsLive] = useState(false);
   const socketRef = useRef(null);
 
   // Merge a task into local state (used for both optimistic updates and
@@ -185,6 +186,8 @@ function Board() {
     const socket = io(SOCKET_URL);
     socketRef.current = socket;
 
+    socket.on('connect', () => setIsLive(true));
+    socket.on('disconnect', () => setIsLive(false));
     socket.on('task:created', upsertTask);
     socket.on('task:updated', upsertTask);
     socket.on('task:deleted', (payload) => removeTask(payload._id));
@@ -202,8 +205,8 @@ function Board() {
   if (loadError) {
     return (
       <div style={{ padding: 24, maxWidth: 600 }}>
-        <p style={{ color: '#c0392b', fontWeight: 600 }}>Couldn't load the board</p>
-        <p style={{ color: '#4b5163' }}>{loadError}</p>
+        <p style={{ color: '#f85149', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>Couldn't load the board</p>
+        <p style={{ color: '#8b949e' }}>{loadError}</p>
       </div>
     );
   }
@@ -213,6 +216,10 @@ function Board() {
       <header className="app-header">
         <span className="logo-dot"></span>
         <h1>Kanban Board</h1>
+        <span className={`live-badge${isLive ? ' is-live' : ''}`}>
+          <span className="live-dot"></span>
+          {isLive ? 'Live' : 'Offline'}
+        </span>
       </header>
       <div className="board">
         {columns.map((column) => (
