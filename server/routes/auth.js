@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 
 function signToken(user) {
-  return jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 // POST /api/auth/register

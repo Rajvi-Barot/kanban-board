@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import Column from './Column';
 import ThemeToggle from './ThemeToggle';
+import { PresenceStack, CursorLayer } from './PresenceLayer';
 import { useAuth } from '../context/auth';
 import { API_URL } from '../config';
 
@@ -17,7 +18,10 @@ function Board() {
   const [isLive, setIsLive] = useState(false);
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [presentUsers, setPresentUsers] = useState([]);
+  const [cursors, setCursors] = useState({});
   const socketRef = useRef(null);
+  const lastCursorSentRef = useRef(0);
 
   // Merge a task into local state (used for both optimistic updates and
   // real-time events from other clients) — remove it from wherever it was,
@@ -219,7 +223,37 @@ function Board() {
     socket.on('column:updated', upsertColumn);
     socket.on('column:deleted', (payload) => removeColumn(payload._id));
 
+    // Live presence + cursors
+    socket.on('presence:list', (list) => setPresentUsers(list));
+    socket.on('presence:join', (user) => {
+      setPresentUsers((prev) => [...prev.filter((u) => u.socketId !== user.socketId), user]);
+    });
+    socket.on('presence:leave', ({ socketId }) => {
+      setPresentUsers((prev) => prev.filter((u) => u.socketId !== socketId));
+      setCursors((prev) => {
+        const next = { ...prev };
+        delete next[socketId];
+        return next;
+      });
+    });
+    socket.on('cursor:move', ({ socketId, username, xPct, yPct }) => {
+      setCursors((prev) => ({ ...prev, [socketId]: { username, xPct, yPct } }));
+    });
+
+    function handleMouseMove(e) {
+      // Throttle to ~20 updates/sec — plenty smooth, far less network chatter.
+      const now = Date.now();
+      if (now - lastCursorSentRef.current < 50) return;
+      lastCursorSentRef.current = now;
+      socket.emit('cursor:move', {
+        xPct: e.clientX / window.innerWidth,
+        yPct: e.clientY / window.innerHeight,
+      });
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+
     return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
       socket.disconnect();
     };
   }, [token]);
@@ -260,11 +294,13 @@ function Board() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <ThemeToggle />
+        <PresenceStack users={presentUsers} myUsername={username} />
         <span className="current-user">{username}</span>
         <button type="button" className="logout-btn" onClick={logout}>
           Log out
         </button>
       </header>
+      <CursorLayer cursors={cursors} />
       <div className="board">
         {visibleColumns.map((column) => (
           <Column

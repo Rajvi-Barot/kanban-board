@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { avatarColor, initials } from '../utils/avatar';
 
 const LABELS = {
   none: null,
@@ -7,18 +8,6 @@ const LABELS = {
   idea: { text: 'Idea', className: 'label-idea' },
   urgent: { text: 'Urgent', className: 'label-urgent' },
 };
-
-const AVATAR_COLORS = ['#de350b', '#0052cc', '#00875a', '#6554c0', '#ff8b00', '#00a3bf'];
-
-function avatarColor(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function initials(name) {
-  return name.slice(0, 2).toUpperCase();
-}
 
 function formatDueDate(dueDate) {
   if (!dueDate) return null;
